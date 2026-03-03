@@ -1,6 +1,7 @@
 import argparse
 import base64
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -13,8 +14,10 @@ STATE_DIR = WORKSPACE_ROOT / "state"
 STATE_DIR.mkdir(exist_ok=True)
 AUTH_FILE = STATE_DIR / "graph_auth.json"
 LOG_FILE = STATE_DIR / "graph_ops.log"
-DEFAULT_CLIENT_ID = "871c010d-c5f5-44c4-a880-0f22c62b742a"  # Mozilla Thunderbird public client
-DEFAULT_TENANT = "organizations"
+# Default app/tenant tuned for Microsoft personal accounts.
+# Override with GRAPH_CLIENT_ID / GRAPH_TENANT_ID or CLI args when needed.
+DEFAULT_CLIENT_ID = os.getenv("GRAPH_CLIENT_ID", "9e5f94bc-e8a4-4e73-b8be-63364c29d753")
+DEFAULT_TENANT = os.getenv("GRAPH_TENANT_ID", "consumers")
 DEFAULT_SCOPES = [
     "Mail.ReadWrite",
     "Mail.Send",

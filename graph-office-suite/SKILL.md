@@ -1,6 +1,6 @@
 ---
 name: graph-office-suite
-description: Operar Outlook (e-mail), Calendário e OneDrive via Microsoft Graph usando o app público do Thunderbird. Inclui OAuth assistido (device code), envio/consulta de emails, gestão de eventos e arquivos. Use quando precisar ler ou enviar mensagens, atualizar agenda ou manipular arquivos diretamente pelo Graph.
+description: Operar Outlook (e-mail), Calendário e OneDrive via Microsoft Graph com OAuth assistido (device code), envio/consulta de emails, gestão de eventos e arquivos. Use quando precisar ler ou enviar mensagens, atualizar agenda ou manipular arquivos diretamente pelo Graph.
 ---
 
 # Graph Office Suite Skill
@@ -8,23 +8,26 @@ description: Operar Outlook (e-mail), Calendário e OneDrive via Microsoft Graph
 ## 1. Pré-requisitos rápidos
 1. Python 3 com `requests` instalado (já presente neste ambiente).
 2. Variáveis padrão:
-   - Client ID (Thunderbird): `871c010d-c5f5-44c4-a880-0f22c62b742a`
-   - Tenant: `organizations` (ajuste se quiser restringir a um tenant específico)
+   - Client ID (conta pessoal): `9e5f94bc-e8a4-4e73-b8be-63364c29d753`
+   - Tenant (conta pessoal): `consumers`
    - Escopos default: `Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite.All Contacts.ReadWrite offline_access`
+   - Para conta corporativa/escolar, troque para `--tenant-id organizations` (ou GUID) e o `--client-id` do tenant.
 3. Tokens ficam em `state/graph_auth.json` (automaticamente gitignored).
 
 ## 2. Fluxo OAuth assistido (Device Code)
 1. Rode o script:  
    ```bash
-   python skills/graph-office-suite/scripts/graph_auth.py device-login \
+   python graph-office-suite/scripts/graph_auth.py device-login \
+     --client-id 9e5f94bc-e8a4-4e73-b8be-63364c29d753 \
+     --tenant-id consumers \
      --scopes Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite.All Contacts.ReadWrite offline_access
    ```
 2. Ele imprime **URL** e **código**. Cole ambos no chat para o Manuel autorizar.
 3. Assim que ele confirmar em `https://microsoft.com/devicelogin`, o token+refresh token serão salvos.
 4. Para acompanhar ou renovar manualmente:  
-   - `python skills/graph-office-suite/scripts/graph_auth.py status`  
-   - `python skills/graph-office-suite/scripts/graph_auth.py refresh`  
-   - `python skills/graph-office-suite/scripts/graph_auth.py clear`
+   - `python graph-office-suite/scripts/graph_auth.py status`  
+   - `python graph-office-suite/scripts/graph_auth.py refresh`  
+   - `python graph-office-suite/scripts/graph_auth.py clear`
 5. Os demais scripts chamam `utils.get_access_token()` que renova automaticamente ao detectar expiração.
 
 > Referência detalhada em [`references/auth.md`](references/auth.md).
