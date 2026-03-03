@@ -96,7 +96,7 @@ def poll_for_token(device_data: dict, client_id: str, tenant_id: str) -> dict:
 
 
 def command_device_login(args: argparse.Namespace) -> None:
-    scopes = args.scopes or DEFAULT_SCOPES
+    scopes = list(DEFAULT_SCOPES)
     client_id = args.client_id or DEFAULT_CLIENT_ID
     tenant_id = args.tenant_id or DEFAULT_TENANT
     validate_scope_tenant_compatibility(scopes, tenant_id)
@@ -180,7 +180,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_login = sub.add_parser("device-login", help="Start device-code sign-in flow.")
     p_login.add_argument("--client-id", help="Client ID to use", default=DEFAULT_CLIENT_ID)
     p_login.add_argument("--tenant-id", help="Tenant (consumers, organizations, common, or GUID)", default=DEFAULT_TENANT)
-    p_login.add_argument("--scopes", nargs="+", help="Scopes to request", default=DEFAULT_SCOPES)
 
     sub.add_parser("refresh", help="Force immediate token refresh.")
     sub.add_parser("status", help="Show current auth/token status.")

@@ -8,7 +8,7 @@ description: Operate Outlook email, Calendar, and OneDrive via Microsoft Graph w
 ## 1. Quick prerequisites
 1. Python 3 with `requests` installed.
 2. Default auth values:
-   - Client ID (personal-account default): `9e5f94bc-e8a4-4e73-b8be-63364c29d753`
+   - Client ID (personal-account default): `952d1b34-682e-48ce-9c54-bac5a96cbd42`
    - Tenant (personal-account default): `consumers`
    - Default scopes: `Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite.All Contacts.ReadWrite offline_access`
    - For work/school accounts, use `--tenant-id organizations` (or tenant GUID) and a tenant-approved `--client-id`.
@@ -18,9 +18,8 @@ description: Operate Outlook email, Calendar, and OneDrive via Microsoft Graph w
 1. Run:
    ```bash
    python graph-office-suite/scripts/graph_auth.py device-login \
-     --client-id 9e5f94bc-e8a4-4e73-b8be-63364c29d753 \
-     --tenant-id consumers \
-     --scopes Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite.All Contacts.ReadWrite offline_access
+     --client-id 952d1b34-682e-48ce-9c54-bac5a96cbd42 \
+     --tenant-id consumers
    ```
 2. The script prints a **URL** and **device code**.
 3. Open `https://microsoft.com/devicelogin`, enter the code, and approve with the target account.
@@ -29,6 +28,7 @@ description: Operate Outlook email, Calendar, and OneDrive via Microsoft Graph w
    - `python graph-office-suite/scripts/graph_auth.py refresh`  
    - `python graph-office-suite/scripts/graph_auth.py clear`
 5. Other scripts call `utils.get_access_token()`, which refreshes tokens automatically when needed.
+6. Scope override is disabled in `graph_auth.py`; the skill always uses `DEFAULT_SCOPES`.
 
 Detailed reference: [`references/auth.md`](references/auth.md).
 

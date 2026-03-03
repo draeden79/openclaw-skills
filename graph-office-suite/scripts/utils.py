@@ -16,7 +16,7 @@ AUTH_FILE = STATE_DIR / "graph_auth.json"
 LOG_FILE = STATE_DIR / "graph_ops.log"
 # Default app/tenant tuned for Microsoft personal accounts.
 # Override with GRAPH_CLIENT_ID / GRAPH_TENANT_ID or CLI args when needed.
-DEFAULT_CLIENT_ID = os.getenv("GRAPH_CLIENT_ID", "9e5f94bc-e8a4-4e73-b8be-63364c29d753")
+DEFAULT_CLIENT_ID = os.getenv("GRAPH_CLIENT_ID", "952d1b34-682e-48ce-9c54-bac5a96cbd42")
 DEFAULT_TENANT = os.getenv("GRAPH_TENANT_ID", "consumers")
 DEFAULT_SCOPES = [
     "Mail.ReadWrite",

@@ -19,9 +19,8 @@ Microsoft Graph automation skill focused on email, calendar, and OneDrive workfl
 1. Authenticate:
    ```bash
    python graph-office-suite/scripts/graph_auth.py device-login \
-     --client-id 9e5f94bc-e8a4-4e73-b8be-63364c29d753 \
-     --tenant-id consumers \
-     --scopes Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite.All offline_access
+     --client-id 952d1b34-682e-48ce-9c54-bac5a96cbd42 \
+     --tenant-id consumers
    ```
 2. Run an operation:
    ```bash

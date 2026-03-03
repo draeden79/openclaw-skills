@@ -4,7 +4,7 @@
 
 ### Personal Microsoft account (`@outlook.com`, `@hotmail.com`, Microsoft 365 Family)
 
-- **Skill default Client ID**: `9e5f94bc-e8a4-4e73-b8be-63364c29d753`
+- **Skill default Client ID**: `952d1b34-682e-48ce-9c54-bac5a96cbd42`
 - **Skill default tenant**: `consumers`
 - **Use when**: you authenticate with Microsoft personal accounts (MSA), without corporate Entra ID.
 
@@ -23,17 +23,18 @@
 
 ## Assisted device-code flow
 
-1. Run (personal-account profile): `python graph-office-suite/scripts/graph_auth.py device-login --client-id 9e5f94bc-e8a4-4e73-b8be-63364c29d753 --tenant-id consumers --scopes Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite.All Contacts.ReadWrite offline_access`
+1. Run (personal-account profile): `python graph-office-suite/scripts/graph_auth.py device-login --client-id 952d1b34-682e-48ce-9c54-bac5a96cbd42 --tenant-id consumers`
 2. The script prints **URL** and **code**.
 3. Open `https://microsoft.com/devicelogin`, paste the code, and authorize.
 4. On success, the script saves `state/graph_auth.json` with `access_token`, `refresh_token`, expiration, and scopes.
 5. Tokens auto-refresh before requests. To force refresh: `python graph-office-suite/scripts/graph_auth.py refresh`.
+6. Scopes are fixed by the skill defaults; scope override via CLI is intentionally disabled.
 
 ## `state/graph_auth.json` structure
 
 ```json
 {
-  "client_id": "9e5f94bc-e8a4-4e73-b8be-63364c29d753",
+  "client_id": "952d1b34-682e-48ce-9c54-bac5a96cbd42",
   "tenant_id": "consumers",
   "scopes": ["Mail.ReadWrite", "Mail.Send", ...],
   "token": {
