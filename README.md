@@ -12,6 +12,7 @@ Microsoft Graph automation skill focused on email, calendar, and OneDrive workfl
 - Mail operations (list, filter, fetch, send)
 - Calendar operations (list, create, update, cancel)
 - OneDrive operations (list, upload, download, move, share)
+- Contacts operations (list, create, get, update, delete)
 
 ## Quick start
 

@@ -69,13 +69,13 @@ Full examples: [`references/calendar.md`](references/calendar.md).
 
 More details: [`references/drive.md`](references/drive.md).
 
-## 6. Contacts (optional)
-Scopes include `Contacts.ReadWrite`. For quick operations, call `/me/contacts`:
-```bash
-curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  https://graph.microsoft.com/v1.0/me/contacts
-```
-(Add dedicated scripts if contacts usage grows.)
+## 6. Contacts
+- **List/search**: `python graph-office-suite/scripts/contacts_ops.py list --top 20`
+- **Create**: `... create --given-name Jane --surname Doe --email jane.doe@example.com`
+- **Update/Delete**: `... update <contactId> ...` / `... delete <contactId>`
+- Contacts are part of the default scope set and supported as a first-class workflow.
+
+More details: [`references/contacts.md`](references/contacts.md).
 
 ## 7. Logging and conventions
 - Each script appends one JSON line to `state/graph_ops.log` with timestamp, action, and key parameters.

@@ -24,7 +24,14 @@ from utils import (  # noqa: E402
     _request_token,
 )
 
-CORE_SKILL_SCOPES = {"Mail.ReadWrite", "Mail.Send", "Calendars.ReadWrite", "offline_access"}
+CORE_SKILL_SCOPES = {
+    "Mail.ReadWrite",
+    "Mail.Send",
+    "Calendars.ReadWrite",
+    "Files.ReadWrite.All",
+    "Contacts.ReadWrite",
+    "offline_access",
+}
 
 
 def warn_if_missing_core_scopes(scopes: List[str], context: str) -> None:
