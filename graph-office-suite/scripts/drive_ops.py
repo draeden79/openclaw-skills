@@ -4,6 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
+import requests
+
 from utils import append_log, authorized_request, graph_url, cli_main
 
 
@@ -36,9 +38,70 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _normalize_remote_path(path: str) -> str:
+    normalized = (path or "/").strip()
+    if not normalized:
+        return "/"
+    if not normalized.startswith("/"):
+        normalized = f"/{normalized}"
+    if normalized != "/":
+        normalized = normalized.rstrip("/")
+    return normalized
+
+
+def _split_remote_path(path: str) -> tuple[str, str]:
+    normalized = _normalize_remote_path(path)
+    if normalized == "/":
+        return "", ""
+    parts = normalized.lstrip("/").split("/", 1)
+    head = parts[0]
+    tail = parts[1] if len(parts) > 1 else ""
+    return head, tail
+
+
+def _slug(value: str) -> str:
+    return "".join(ch for ch in value.lower() if ch.isalnum())
+
+
+def _resolve_special_folder_id(head_segment: str) -> str | None:
+    target = _slug(head_segment)
+    if not target:
+        return None
+    # /me/drive/special can be empty in some personal tenants; inspect root children as fallback.
+    resp = authorized_request("GET", graph_url("/me/drive/root/children"))
+    for item in resp.json().get("value", []):
+        display_name = _slug(item.get("name", ""))
+        special_name = _slug(item.get("specialFolder", {}).get("name", ""))
+        if target in {display_name, special_name}:
+            return item.get("id")
+    return None
+
+
+def resolve_remote_item(remote: str) -> dict:
+    normalized = _normalize_remote_path(remote)
+    if normalized == "/":
+        return authorized_request("GET", graph_url("/me/drive/root")).json()
+    try:
+        return authorized_request("GET", graph_url(f"/me/drive/root:{normalized}")).json()
+    except requests.HTTPError as exc:
+        if exc.response is None or exc.response.status_code != 404:
+            raise
+        head, tail = _split_remote_path(normalized)
+        special_id = _resolve_special_folder_id(head)
+        if not special_id:
+            raise
+        if tail:
+            return authorized_request("GET", graph_url(f"/me/drive/items/{special_id}:/{tail}")).json()
+        return authorized_request("GET", graph_url(f"/me/drive/items/{special_id}")).json()
+
+
 def list_items(path: str, top: int) -> None:
-    encoded_path = path if path.startswith("/") else f"/{path}"
-    url = graph_url(f"/me/drive/root:{encoded_path}:/children")
+    normalized = _normalize_remote_path(path)
+    if normalized == "/":
+        url = graph_url("/me/drive/root/children")
+    else:
+        item = resolve_remote_item(normalized)
+        url = graph_url(f"/me/drive/items/{item['id']}/children")
     resp = authorized_request("GET", url, params={"$top": top})
     data = resp.json()
     append_log({"action": "drive_list", "path": path, "count": len(data.get("value", []))})
@@ -47,17 +110,23 @@ def list_items(path: str, top: int) -> None:
 
 def upload_file(local: Path, remote: str) -> None:
     content = local.read_bytes()
-    remote_path = remote if remote.startswith("/") else f"/{remote}"
-    url = graph_url(f"/me/drive/root:{remote_path}:/content")
+    remote_path = _normalize_remote_path(remote)
+    parent_path, _, file_name = remote_path.rpartition("/")
+    if not file_name:
+        raise SystemExit("Destino remoto deve incluir nome de arquivo.")
+    parent_path = parent_path or "/"
+    if parent_path == "/":
+        url = graph_url(f"/me/drive/root:/{file_name}:/content")
+    else:
+        parent_item = resolve_remote_item(parent_path)
+        url = graph_url(f"/me/drive/items/{parent_item['id']}:/{file_name}:/content")
     resp = authorized_request("PUT", url, data=content, headers={"Content-Type": "application/octet-stream"})
     append_log({"action": "drive_upload", "name": local.name, "remote": remote})
     print(json.dumps(resp.json(), indent=2))
 
 
 def resolve_item_path(remote: str) -> str:
-    path = remote if remote.startswith("/") else f"/{remote}"
-    resp = authorized_request("GET", graph_url(f"/me/drive/root:{path}"))
-    return resp.json()["id"]
+    return resolve_remote_item(remote)["id"]
 
 
 def download_file(item_id: str, remote: str, local: Path) -> None:
@@ -76,7 +145,7 @@ def download_file(item_id: str, remote: str, local: Path) -> None:
 def move_item(item_id: str, dest: str) -> None:
     payload = {}
     if dest.startswith("/"):
-        payload["parentReference"] = {"path": f"/drive/root:{dest}"}
+        payload["parentReference"] = {"id": resolve_item_path(dest)}
     else:
         payload["parentReference"] = {"id": dest}
     resp = authorized_request("PATCH", graph_url(f"/me/drive/items/{item_id}"), json=payload)

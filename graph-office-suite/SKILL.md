@@ -61,10 +61,11 @@ Mais exemplos e filtros em [`references/mail.md`](references/mail.md).
 Modelos completos em [`references/calendar.md`](references/calendar.md).
 
 ## 5. OneDrive / Arquivos
-- **Listar pastas**: `python skills/graph-office-suite/scripts/drive_ops.py list --path /Documentos`
+- **Listar pastas**: `python graph-office-suite/scripts/drive_ops.py list --path /`
 - **Upload**: `... upload --local notas/briefing.docx --remote /Clientes/briefing.docx`
 - **Download**: `... download --remote /Clientes/briefing.docx --local /tmp/briefing.docx`
 - **Mover** ou **gerar link** com os subcomandos `move` e `share`.
+- O script trata aliases/localização de pastas especiais (ex.: `Documents`/`Documentos`).
 
 Detalhes adicionais em [`references/drive.md`](references/drive.md).
 
