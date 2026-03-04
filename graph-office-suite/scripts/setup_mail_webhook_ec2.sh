@@ -41,6 +41,10 @@ require_cmd() {
   }
 }
 
+ok() { echo "[OK] $1"; }
+info() { echo "[INFO] $1"; }
+warn() { echo "[WARN] $1"; }
+
 DOMAIN=""
 HOOK_URL=""
 HOOK_TOKEN=""
@@ -97,6 +101,7 @@ done
 echo "[1/7] Installing dependencies..."
 apt-get update -y
 apt-get install -y python3 python3-pip curl gnupg debian-keyring debian-archive-keyring apt-transport-https
+ok "Dependencies installed"
 
 if ! command -v caddy >/dev/null 2>&1; then
   echo "[2/7] Installing Caddy..."
@@ -107,6 +112,7 @@ if ! command -v caddy >/dev/null 2>&1; then
 else
   echo "[2/7] Caddy already installed."
 fi
+ok "Caddy available"
 
 echo "[3/7] Writing environment file: $ENV_FILE"
 cat > "$ENV_FILE" <<EOF
@@ -118,6 +124,7 @@ GRAPH_WEBHOOK_ADAPTER_PORT=$ADAPTER_PORT
 GRAPH_WEBHOOK_ADAPTER_PATH=$ADAPTER_PATH
 EOF
 chmod 600 "$ENV_FILE"
+ok "Environment file written"
 
 echo "[4/7] Configuring Caddy reverse proxy for $DOMAIN"
 cat > /etc/caddy/Caddyfile <<EOF
@@ -125,6 +132,7 @@ $DOMAIN {
     reverse_proxy 127.0.0.1:$ADAPTER_PORT
 }
 EOF
+ok "Caddyfile configured for $DOMAIN"
 
 echo "[5/7] Creating systemd service: graph-mail-webhook-adapter"
 cat > /etc/systemd/system/graph-mail-webhook-adapter.service <<EOF
@@ -143,6 +151,7 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
+ok "Adapter systemd service created"
 
 echo "[6/7] Creating systemd service: graph-mail-webhook-worker"
 cat > /etc/systemd/system/graph-mail-webhook-worker.service <<EOF
@@ -161,6 +170,7 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
+ok "Worker systemd service created"
 
 echo "[7/7] Creating renew timer..."
 cat > /etc/systemd/system/graph-mail-subscription-renew.service <<EOF
@@ -187,6 +197,7 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+ok "Renew timer/service created"
 
 systemctl daemon-reload
 systemctl enable --now caddy
@@ -194,13 +205,36 @@ systemctl enable --now graph-mail-webhook-adapter
 systemctl enable --now graph-mail-webhook-worker
 systemctl enable --now graph-mail-subscription-renew.timer
 
+echo "[verify] Checking runtime status..."
+systemctl is-active --quiet caddy && ok "caddy is active" || { echo "[FAIL] caddy is not active"; exit 1; }
+systemctl is-active --quiet graph-mail-webhook-adapter && ok "graph-mail-webhook-adapter is active" || { echo "[FAIL] graph-mail-webhook-adapter is not active"; exit 1; }
+systemctl is-active --quiet graph-mail-webhook-worker && ok "graph-mail-webhook-worker is active" || { echo "[FAIL] graph-mail-webhook-worker is not active"; exit 1; }
+systemctl is-active --quiet graph-mail-subscription-renew.timer && ok "graph-mail-subscription-renew.timer is active" || { echo "[FAIL] graph-mail-subscription-renew.timer is not active"; exit 1; }
+
+LOCAL_PROBE="$(curl -fsS "http://127.0.0.1:${ADAPTER_PORT}${ADAPTER_PATH}?validationToken=probe-local")"
+if [[ "$LOCAL_PROBE" == "probe-local" ]]; then
+  ok "local adapter handshake works"
+else
+  echo "[FAIL] local adapter handshake failed"
+  exit 1
+fi
+
 echo
-echo "Done."
-echo "Next manual steps:"
-echo "1) Verify DNS for: $DOMAIN"
-echo "2) Test validation endpoint:"
+echo "Setup completed successfully."
+echo
+info "Readiness status:"
+if grep -q '^GRAPH_MAIL_SUBSCRIPTION_ID=' "$ENV_FILE"; then
+  ok "service stack configured and subscription id present"
+  echo "PUSH_READINESS: READY (subscription id set)"
+else
+  warn "service stack configured, but GRAPH_MAIL_SUBSCRIPTION_ID is not set yet"
+  echo "PUSH_READINESS: PARTIAL (create subscription to finish)"
+fi
+echo
+echo "Next steps:"
+echo "1) Verify public HTTPS endpoint:"
 echo "   curl \"https://$DOMAIN$ADAPTER_PATH?validationToken=abc123\""
-echo "3) Create subscription and copy returned id:"
+echo "2) Create subscription and copy returned id:"
 echo "   $PYTHON_BIN $SUB_SCRIPT create --notification-url https://$DOMAIN$ADAPTER_PATH --client-state '$CLIENT_STATE' --minutes 4200"
-echo "4) Add GRAPH_MAIL_SUBSCRIPTION_ID=<id> to $ENV_FILE and restart renew service:"
+echo "3) Add GRAPH_MAIL_SUBSCRIPTION_ID=<id> to $ENV_FILE and restart renew service:"
 echo "   systemctl restart graph-mail-subscription-renew.service"

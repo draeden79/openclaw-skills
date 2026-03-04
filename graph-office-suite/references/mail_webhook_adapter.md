@@ -85,7 +85,7 @@ sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
   --domain graphhook.example.com \
   --hook-token "<OPENCLAW_HOOK_TOKEN>" \
   --configure-openclaw-hooks \
-  --openclaw-config "/etc/openclaw/config.json5" \
+  --openclaw-config "/home/ubuntu/.openclaw/openclaw.json" \
   --openclaw-service-name "auto" \
   --openclaw-hooks-path "/hooks" \
   --openclaw-allow-request-session-key true \
@@ -93,6 +93,36 @@ sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
 ```
 
 This mode creates a backup of the OpenClaw config, patches/creates the `hooks` block, restarts OpenClaw, and executes `/hooks/wake` + `/hooks/agent` smoke tests.
+
+Run minimal-input smoke tests any time:
+
+```bash
+bash graph-office-suite/scripts/run_mail_webhook_smoke_tests.sh \
+  --domain graphhook.example.com \
+  --create-subscription \
+  --test-email tar.alitar@outlook.com
+```
+
+## 3.1) Start-to-finish runbook (manual + scripts)
+
+Follow this exact order for a clean setup to full validation:
+
+1. Manual prerequisites:
+   - Configure DNS (`graphhook.<domain>` -> EC2 public IP).
+   - Open inbound `80` and `443`.
+   - Ensure OpenClaw Gateway is running locally on `127.0.0.1:18789`.
+   - Complete OAuth device login once.
+2. Run setup:
+   - `setup_mail_webhook_ec2.sh` if you only want infrastructure/services.
+   - `run_mail_webhook_e2e_setup.sh` for one-command full setup.
+3. Confirm setup verdict:
+   - Script prints `READY_FOR_PUSH` or `PARTIAL` status at the end.
+4. Run smoke tests:
+   - `run_mail_webhook_smoke_tests.sh --domain ... --create-subscription --test-email ...`
+5. Confirm test verdict:
+   - Script prints `READINESS VERDICT: READY_FOR_PUSH` only when critical + live email checks pass.
+
+If verdict is `PARTIAL`, the script output lists exactly what is missing.
 
 ## 4) External setup checklist (EC2 / production)
 

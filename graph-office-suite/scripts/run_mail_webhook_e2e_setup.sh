@@ -40,6 +40,9 @@ require_cmd() {
   }
 }
 
+ok() { echo "[OK] $1"; }
+info() { echo "[INFO] $1"; }
+
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   echo "Run as root (sudo)." >&2
   exit 1
@@ -158,7 +161,7 @@ if [[ "$CONFIGURE_OPENCLAW_HOOKS" == "true" ]]; then
 
   BACKUP_PATH="${OPENCLAW_CONFIG}.bak.$(date +%Y%m%d-%H%M%S)"
   cp "$OPENCLAW_CONFIG" "$BACKUP_PATH"
-  echo "[OpenClaw] Backup created: $BACKUP_PATH"
+  ok "OpenClaw config backup created: $BACKUP_PATH"
 
   python3 - "$OPENCLAW_CONFIG" "$HOOK_TOKEN" "$OPENCLAW_HOOKS_PATH" "$OPENCLAW_ALLOW_REQUEST_SESSION_KEY" <<'PY'
 import sys
@@ -300,7 +303,7 @@ cfg_path.write_text(updated, encoding="utf-8")
 print("OpenClaw hooks block updated.")
 PY
 
-  echo "[OpenClaw] Restarting service: $OPENCLAW_SERVICE_NAME"
+  info "Restarting OpenClaw service: $OPENCLAW_SERVICE_NAME"
   if [[ "$OPENCLAW_SERVICE_NAME" == "auto" ]]; then
     if command -v openclaw >/dev/null 2>&1; then
       if [[ -n "${SUDO_USER:-}" ]]; then
@@ -335,7 +338,7 @@ PY
     systemctl status "$OPENCLAW_SERVICE_NAME" --no-pager >/dev/null || true
   fi
 
-  echo "[OpenClaw] Running smoke tests..."
+  info "Running OpenClaw hook smoke tests..."
   curl -fsS -X POST "http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/wake" \
     -H "Authorization: Bearer $HOOK_TOKEN" \
     -H "Content-Type: application/json" \
@@ -345,7 +348,7 @@ PY
     -H "Authorization: Bearer $HOOK_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"message":"Graph webhook setup smoke test","name":"GraphWebhook","wakeMode":"next-heartbeat"}' >/dev/null
-  echo "[OpenClaw] Hooks smoke tests OK."
+  ok "OpenClaw /hooks/wake and /hooks/agent checks passed"
 fi
 
 echo "[Step 2] Running bootstrap script..."
@@ -416,7 +419,7 @@ else
 fi
 
 echo
-echo "Done. Summary:"
+echo "Setup and validation completed. Summary:"
 echo "- Domain: https://$DOMAIN$ADAPTER_PATH"
 echo "- Client state: $CLIENT_STATE"
 echo "- Subscription ID: $SUBSCRIPTION_ID"
@@ -431,3 +434,11 @@ echo "  systemctl status graph-mail-webhook-adapter --no-pager"
 echo "  systemctl status graph-mail-webhook-worker --no-pager"
 echo "  systemctl status graph-mail-subscription-renew.timer --no-pager"
 echo "  python3 \"$SUB_SCRIPT\" status --id \"$SUBSCRIPTION_ID\""
+echo
+echo "READINESS VERDICT:"
+if [[ -n "$TEST_EMAIL" ]]; then
+  echo "READY_FOR_PUSH: YES (public endpoint, subscription, services, and real email send tested)"
+else
+  echo "READY_FOR_PUSH: YES (public endpoint, subscription, and services validated)"
+  echo "NOTE: add --test-email for full live delivery check."
+fi
