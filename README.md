@@ -10,6 +10,7 @@ Microsoft Graph automation skill focused on email, calendar, and OneDrive workfl
 
 - OAuth device-code authentication with refresh-token handling
 - Mail operations (list, filter, fetch, send)
+- Mail push notifications via Graph webhook adapter (no polling)
 - Calendar operations (list, create, update, cancel)
 - OneDrive operations (list, upload, download, move, share)
 - Contacts operations (list, create, get, update, delete)
@@ -25,6 +26,16 @@ Microsoft Graph automation skill focused on email, calendar, and OneDrive workfl
 2. Run an operation:
    ```bash
    python graph-office-suite/scripts/mail_fetch.py --folder Inbox --top 10
+   ```
+3. Optional: enable push mode (webhook + worker):
+   ```bash
+   python graph-office-suite/scripts/mail_webhook_adapter.py serve --client-state "$GRAPH_WEBHOOK_CLIENT_STATE"
+   python graph-office-suite/scripts/mail_subscriptions.py create --notification-url "https://<your-domain>/graph/mail" --client-state "$GRAPH_WEBHOOK_CLIENT_STATE"
+   python graph-office-suite/scripts/mail_webhook_worker.py loop --session-key "$OPENCLAW_SESSION_KEY" --hook-url "$OPENCLAW_HOOK_URL" --hook-token "$OPENCLAW_HOOK_TOKEN"
+   ```
+4. Optional: EC2 production bootstrap script (automates Caddy + services):
+   ```bash
+   sudo bash graph-office-suite/scripts/setup_mail_webhook_ec2.sh --help
    ```
 
 ## Security and privacy
@@ -43,5 +54,6 @@ Microsoft Graph automation skill focused on email, calendar, and OneDrive workfl
 - Main skill guide: `graph-office-suite/SKILL.md`
 - Auth reference: `graph-office-suite/references/auth.md`
 - Mail reference: `graph-office-suite/references/mail.md`
+- Mail webhook adapter reference: `graph-office-suite/references/mail_webhook_adapter.md`
 - Calendar reference: `graph-office-suite/references/calendar.md`
 - Drive reference: `graph-office-suite/references/drive.md`

@@ -1,6 +1,6 @@
 ---
 name: graph-office-suite
-description: Operate Outlook email, Calendar, and OneDrive via Microsoft Graph with assisted OAuth (device code). Includes email read/send, calendar operations, and file management.
+description: Operate Outlook email, calendar, contacts, and OneDrive via Microsoft Graph with assisted OAuth, plus push mail notifications via webhook adapter.
 ---
 
 # Graph Office Suite Skill
@@ -78,12 +78,69 @@ More details: [`references/drive.md`](references/drive.md).
 
 More details: [`references/contacts.md`](references/contacts.md).
 
-## 7. Logging and conventions
+## 7. Mail push mode (Webhook Adapter)
+- **Adapter server** (Graph handshake + `clientState` validation + enqueue):
+  ```bash
+  python graph-office-suite/scripts/mail_webhook_adapter.py serve \
+    --host 0.0.0.0 --port 8789 --path /graph/mail \
+    --client-state "$GRAPH_WEBHOOK_CLIENT_STATE"
+  ```
+- **Subscription lifecycle** (`create/status/renew/delete/list`):
+  ```bash
+  python graph-office-suite/scripts/mail_subscriptions.py create \
+    --notification-url "https://graph-hook.example.com/graph/mail" \
+    --client-state "$GRAPH_WEBHOOK_CLIENT_STATE" \
+    --minutes 4200
+  ```
+- **Async worker** (dedupe + fetch message + call OpenClaw `/hooks/agent`):
+  ```bash
+  python graph-office-suite/scripts/mail_webhook_worker.py loop \
+    --session-key "$OPENCLAW_SESSION_KEY" \
+    --hook-url "$OPENCLAW_HOOK_URL" \
+    --hook-token "$OPENCLAW_HOOK_TOKEN"
+  ```
+- Worker queue files:
+  - `state/mail_webhook_queue.jsonl`
+  - `state/mail_webhook_dedupe.json`
+- **Automated EC2 bootstrap** (Caddy + systemd + renew timer):
+  ```bash
+  sudo bash graph-office-suite/scripts/setup_mail_webhook_ec2.sh \
+    --domain graphhook.example.com \
+    --hook-url http://127.0.0.1:18789/hooks/agent \
+    --hook-token "<OPENCLAW_HOOK_TOKEN>" \
+    --session-key "hook:graph-mail" \
+    --client-state "<GRAPH_WEBHOOK_CLIENT_STATE>" \
+    --repo-root "$(pwd)"
+  ```
+- **One-command setup (steps 2..6)**:
+  ```bash
+  sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
+    --domain graphhook.example.com \
+    --hook-token "<OPENCLAW_HOOK_TOKEN>" \
+    --hook-url "http://127.0.0.1:18789/hooks/agent" \
+    --session-key "hook:graph-mail" \
+    --test-email "tar.alitar@outlook.com"
+  ```
+- **Include OpenClaw hook config in automation**:
+  ```bash
+  sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
+    --domain graphhook.example.com \
+    --hook-token "<OPENCLAW_HOOK_TOKEN>" \
+    --configure-openclaw-hooks \
+    --openclaw-config "/etc/openclaw/config.json5" \
+    --openclaw-service-name "openclaw" \
+    --openclaw-hooks-path "/hooks" \
+    --openclaw-allow-request-session-key true \
+    --test-email "tar.alitar@outlook.com"
+  ```
+- Setup and runbook: [`references/mail_webhook_adapter.md`](references/mail_webhook_adapter.md).
+
+## 8. Logging and conventions
 - Each script appends one JSON line to `state/graph_ops.log` with timestamp, action, and key parameters.
 - Tokens and logs must never be committed.
 - Commands assume execution from the repository root. Adjust paths if running elsewhere.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 | Symptom | Action |
 | --- | --- |
 | 401/invalid_grant | Run `graph_auth.py refresh`; if it fails, run `clear` and repeat device login. |
@@ -91,4 +148,4 @@ More details: [`references/contacts.md`](references/contacts.md).
 | 429/Throttled | Scripts do basic retry; wait a few seconds and retry. |
 | `requests.exceptions.SSLError` | Verify local system date/time and TLS trust chain. |
 
-This skill provides a single OAuth-driven workflow for email, calendar, and file operations via Microsoft Graph.
+This skill provides OAuth-driven workflows for email, calendar, files, contacts, and push-based mail automation via Microsoft Graph.
