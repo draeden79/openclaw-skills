@@ -43,7 +43,7 @@ Security:
   - [ ] `GRAPH_WEBHOOK_CLIENT_STATE`
   - [ ] `OPENCLAW_HOOK_TOKEN`
   - [ ] `OPENCLAW_SESSION_KEY`
-- [ ] Confirm OpenClaw Hooks are enabled and token-protected (`/hooks/agent`).
+- [ ] Confirm OpenClaw Hooks are enabled and token-protected (`/hooks/wake` for default mode).
 
 ### Automatic (scripted in this project)
 
@@ -52,7 +52,7 @@ Use:
 ```bash
 sudo bash graph-office-suite/scripts/setup_mail_webhook_ec2.sh \
   --domain graphhook.example.com \
-  --hook-url http://127.0.0.1:18789/hooks/agent \
+  --hook-url http://127.0.0.1:18789/hooks/wake \
   --hook-token "<OPENCLAW_HOOK_TOKEN>" \
   --session-key "hook:graph-mail" \
   --client-state "<GRAPH_WEBHOOK_CLIENT_STATE>" \
@@ -73,7 +73,7 @@ One-command setup for steps 2..6 (bootstrap + validation + create subscription +
 sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
   --domain graphhook.example.com \
   --hook-token "<OPENCLAW_HOOK_TOKEN>" \
-  --hook-url "http://127.0.0.1:18789/hooks/agent" \
+  --hook-url "http://127.0.0.1:18789/hooks/wake" \
   --session-key "hook:graph-mail" \
   --test-email "tar.alitar@outlook.com"
 ```
@@ -92,7 +92,7 @@ sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
   --test-email "tar.alitar@outlook.com"
 ```
 
-This mode creates a backup of the OpenClaw config, patches/creates the `hooks` block, restarts OpenClaw, and executes `/hooks/wake` + `/hooks/agent` smoke tests.
+This mode creates a backup of the OpenClaw config, patches/creates the `hooks` block, restarts OpenClaw, and executes `/hooks/wake` smoke tests.
 
 Run minimal-input smoke tests any time:
 
@@ -152,7 +152,7 @@ If verdict is `PARTIAL`, the script output lists exactly what is missing.
 Recommended values to keep in service environment:
 
 - `GRAPH_WEBHOOK_CLIENT_STATE`: shared secret used in Graph subscription and adapter validation.
-- `OPENCLAW_HOOK_URL`: OpenClaw endpoint (`/hooks/agent`).
+- `OPENCLAW_HOOK_URL`: OpenClaw endpoint (`/hooks/wake` default, `/hooks/agent` optional advanced mode).
 - `OPENCLAW_HOOK_TOKEN`: hook token expected by OpenClaw.
 - `OPENCLAW_SESSION_KEY`: target session key for routing notifications.
 

@@ -66,7 +66,8 @@ python graph-office-suite/scripts/mail_webhook_worker.py loop \
 
 - Adapter responds to Graph validation (`validationToken`) and enqueues compact events.
 - Worker performs dedupe by `subscriptionId/messageId/changeType`.
-- Worker fetches full mail object from Graph and posts to OpenClaw `/hooks/agent`.
+- Worker default mode posts a `wake` signal to OpenClaw `/hooks/wake` (`mode=now`) so the inbox is processed in the next heartbeat cycle.
+- Optional advanced mode: `--hook-action agent` to fetch full mail via Graph and post a rich payload to `/hooks/agent`.
 - Renew subscriptions before expiration:
 
 ```

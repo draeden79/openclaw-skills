@@ -19,7 +19,7 @@ Usage:
     [--openclaw-service-name auto] \
     [--openclaw-hooks-path /hooks] \
     [--openclaw-allow-request-session-key true] \
-    [--hook-url http://127.0.0.1:18789/hooks/agent] \
+    [--hook-url http://127.0.0.1:18789/hooks/wake] \
     [--session-key hook:graph-mail] \
     [--client-state "<GRAPH_WEBHOOK_CLIENT_STATE>"] \
     [--repo-root /path/to/openclaw-skills] \
@@ -49,7 +49,7 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
 fi
 
 DOMAIN=""
-HOOK_URL="http://127.0.0.1:18789/hooks/agent"
+HOOK_URL="http://127.0.0.1:18789/hooks/wake"
 HOOK_URL_PROVIDED="false"
 HOOK_TOKEN=""
 SESSION_KEY="hook:graph-mail"
@@ -156,7 +156,7 @@ if [[ "$CONFIGURE_OPENCLAW_HOOKS" == "true" ]]; then
   [[ -f "$OPENCLAW_CONFIG" ]] || { echo "OpenClaw config not found: $OPENCLAW_CONFIG" >&2; exit 1; }
 
   if [[ "$HOOK_URL_PROVIDED" == "false" ]]; then
-    HOOK_URL="http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/agent"
+    HOOK_URL="http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/wake"
   fi
 
   BACKUP_PATH="${OPENCLAW_CONFIG}.bak.$(date +%Y%m%d-%H%M%S)"
@@ -344,11 +344,7 @@ PY
     -H "Content-Type: application/json" \
     -d '{"text":"Graph webhook setup smoke test","mode":"now"}' >/dev/null
 
-  curl -fsS -X POST "http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/agent" \
-    -H "Authorization: Bearer $HOOK_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d '{"message":"Graph webhook setup smoke test","name":"GraphWebhook","wakeMode":"next-heartbeat"}' >/dev/null
-  ok "OpenClaw /hooks/wake and /hooks/agent checks passed"
+  ok "OpenClaw /hooks/wake check passed"
 fi
 
 echo "[Step 2] Running bootstrap script..."

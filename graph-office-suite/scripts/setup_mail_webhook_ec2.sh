@@ -17,7 +17,7 @@ usage() {
 Usage:
   setup_mail_webhook_ec2.sh \
     --domain graphhook.example.com \
-    --hook-url http://127.0.0.1:18789/hooks/agent \
+    --hook-url http://127.0.0.1:18789/hooks/wake \
     --hook-token SECRET \
     --session-key hook:graph-mail \
     --client-state SUPER_SECRET \

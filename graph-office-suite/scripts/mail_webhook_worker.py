@@ -13,7 +13,9 @@ from utils import STATE_DIR, append_log, authorized_request, cli_main, graph_url
 
 DEFAULT_QUEUE_FILE = STATE_DIR / "mail_webhook_queue.jsonl"
 DEFAULT_DEDUPE_FILE = STATE_DIR / "mail_webhook_dedupe.json"
-DEFAULT_HOOK_URL = "http://127.0.0.1:3000/hooks/agent"
+DEFAULT_HOOK_URL = "http://127.0.0.1:3000/hooks/wake"
+DEFAULT_HOOK_ACTION = "wake"
+DEFAULT_WAKE_MODE = "now"
 DEFAULT_DEDUPE_WINDOW_SECONDS = 60 * 60 * 6
 DEFAULT_MAX_RETRIES = 5
 
@@ -86,28 +88,50 @@ def fetch_message(message_id: str) -> Dict[str, Any]:
     return resp.json()
 
 
-def post_hook(hook_url: str, hook_token: str, session_key: str, event: Dict[str, Any], message: Dict[str, Any]) -> None:
-    sender = (message.get("from") or {}).get("emailAddress", {}).get("address") or "unknown"
-    subject = message.get("subject") or "(no subject)"
-    payload = {
-        "message": f"New email received via Graph webhook.\nFrom: {sender}\nSubject: {subject}\nMessageId: {message.get('id')}",
-        "name": "Graph Mail",
-        "sessionKey": session_key,
-        "source": "graph-office-suite",
-        "eventType": "graph.mail.notification",
-        "event": event,
-        "mail": {
-            "id": message.get("id"),
-            "subject": message.get("subject"),
-            "from": (message.get("from") or {}).get("emailAddress", {}).get("address"),
-            "receivedDateTime": message.get("receivedDateTime"),
-            "bodyPreview": message.get("bodyPreview"),
-            "webLink": message.get("webLink"),
-            "hasAttachments": message.get("hasAttachments"),
-            "internetMessageId": message.get("internetMessageId"),
-        },
-        "receivedAt": datetime.now(timezone.utc).isoformat(),
-    }
+def post_hook(
+    hook_url: str,
+    hook_token: str,
+    hook_action: str,
+    wake_mode: str,
+    session_key: str,
+    event: Dict[str, Any],
+    message: Dict[str, Any] | None = None,
+) -> None:
+    if hook_action == "wake":
+        payload = {
+            "text": (
+                "New Graph mail notification received. "
+                f"subscriptionId={event.get('subscriptionId')} "
+                f"messageId={event.get('messageId')} "
+                f"changeType={event.get('changeType')}. "
+                "Process inbox now."
+            ),
+            "mode": wake_mode,
+        }
+    else:
+        if not message:
+            raise ValueError("message is required when hook_action=agent")
+        sender = (message.get("from") or {}).get("emailAddress", {}).get("address") or "unknown"
+        subject = message.get("subject") or "(no subject)"
+        payload = {
+            "message": f"New email received via Graph webhook.\nFrom: {sender}\nSubject: {subject}\nMessageId: {message.get('id')}",
+            "name": "Graph Mail",
+            "sessionKey": session_key,
+            "source": "graph-office-suite",
+            "eventType": "graph.mail.notification",
+            "event": event,
+            "mail": {
+                "id": message.get("id"),
+                "subject": message.get("subject"),
+                "from": (message.get("from") or {}).get("emailAddress", {}).get("address"),
+                "receivedDateTime": message.get("receivedDateTime"),
+                "bodyPreview": message.get("bodyPreview"),
+                "webLink": message.get("webLink"),
+                "hasAttachments": message.get("hasAttachments"),
+                "internetMessageId": message.get("internetMessageId"),
+            },
+            "receivedAt": datetime.now(timezone.utc).isoformat(),
+        }
     headers = {"Content-Type": "application/json"}
     if hook_token:
         headers["Authorization"] = f"Bearer {hook_token}"
@@ -139,9 +163,19 @@ def process_once(args: argparse.Namespace) -> Tuple[int, int, int]:
             continue
 
         try:
-            msg = fetch_message(event["messageId"])
+            msg = None
+            if args.hook_action == "agent":
+                msg = fetch_message(event["messageId"])
             if not args.dry_run:
-                post_hook(args.hook_url, args.hook_token, args.session_key, event, msg)
+                post_hook(
+                    args.hook_url,
+                    args.hook_token,
+                    args.hook_action,
+                    args.wake_mode,
+                    args.session_key,
+                    event,
+                    msg,
+                )
             dedupe[key] = now_ts()
             processed += 1
             append_log({"op": "mail_webhook_processed", "messageId": event.get("messageId"), "dryRun": args.dry_run})
@@ -188,9 +222,21 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--dedupe-file", default=str(DEFAULT_DEDUPE_FILE), help="Dedupe state file path.")
         p.add_argument("--dedupe-window-seconds", type=int, default=DEFAULT_DEDUPE_WINDOW_SECONDS, help="Dedupe time window.")
         p.add_argument("--max-retries", type=int, default=DEFAULT_MAX_RETRIES, help="Max retries before dropping.")
-        p.add_argument("--hook-url", default=DEFAULT_HOOK_URL, help="OpenClaw /hooks/agent URL.")
+        p.add_argument("--hook-url", default=DEFAULT_HOOK_URL, help="OpenClaw hook URL (/hooks/wake by default).")
+        p.add_argument(
+            "--hook-action",
+            choices=["wake", "agent"],
+            default=DEFAULT_HOOK_ACTION,
+            help="Webhook action mode: wake (default) or agent.",
+        )
+        p.add_argument(
+            "--wake-mode",
+            choices=["now", "next-heartbeat"],
+            default=DEFAULT_WAKE_MODE,
+            help="Wake mode used when --hook-action wake.",
+        )
         p.add_argument("--hook-token", default="", help="OpenClaw hook token.")
-        p.add_argument("--session-key", required=True, help="OpenClaw session key for routing.")
+        p.add_argument("--session-key", default="hook:graph-mail", help="OpenClaw session key (used by agent mode).")
         p.add_argument("--dry-run", action="store_true", help="Fetch mail but do not call hook.")
 
     p_once = sub.add_parser("once", help="Process queued events once.")

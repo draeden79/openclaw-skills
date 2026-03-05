@@ -71,6 +71,12 @@ if [[ -f "$ENV_FILE" ]]; then
   if [[ "${ADAPTER_PATH}" == "/graph/mail" && -n "${GRAPH_WEBHOOK_ADAPTER_PATH:-}" ]]; then
     ADAPTER_PATH="${GRAPH_WEBHOOK_ADAPTER_PATH}"
   fi
+  if [[ -n "${OPENCLAW_HOOK_URL:-}" ]]; then
+    OPENCLAW_HOOK_URL="${OPENCLAW_HOOK_URL}"
+  fi
+  if [[ -n "${OPENCLAW_HOOK_TOKEN:-}" ]]; then
+    OPENCLAW_HOOK_TOKEN="${OPENCLAW_HOOK_TOKEN}"
+  fi
 fi
 
 if [[ -z "$DOMAIN" ]]; then
@@ -125,13 +131,21 @@ pass "Public HTTPS handshake"
 
 if [[ -n "$OPENCLAW_HOOK_URL" && -n "$OPENCLAW_HOOK_TOKEN" ]]; then
   echo "[2b] OpenClaw hook auth check..."
-  curl -fsS -X POST "$OPENCLAW_HOOK_URL" \
-    -H "Authorization: Bearer $OPENCLAW_HOOK_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d '{"message":"Graph webhook smoke test","name":"GraphSmoke","wakeMode":"next-heartbeat"}' >/dev/null
-  pass "OpenClaw /hooks/agent authentication"
+  if [[ "$OPENCLAW_HOOK_URL" == *"/wake" ]]; then
+    curl -fsS -X POST "$OPENCLAW_HOOK_URL" \
+      -H "Authorization: Bearer $OPENCLAW_HOOK_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"text":"Graph webhook smoke auth test","mode":"now"}' >/dev/null
+    pass "OpenClaw /hooks/wake authentication"
+  else
+    curl -fsS -X POST "$OPENCLAW_HOOK_URL" \
+      -H "Authorization: Bearer $OPENCLAW_HOOK_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"message":"Graph webhook smoke test","name":"GraphSmoke","wakeMode":"next-heartbeat"}' >/dev/null
+    pass "OpenClaw /hooks/agent authentication"
+  fi
 else
-  skip "OpenClaw /hooks/agent auth check (missing OPENCLAW_HOOK_URL / OPENCLAW_HOOK_TOKEN in env)"
+  skip "OpenClaw hook auth check (missing OPENCLAW_HOOK_URL / OPENCLAW_HOOK_TOKEN in env)"
 fi
 
 if [[ "$CREATE_SUBSCRIPTION" == "true" ]]; then

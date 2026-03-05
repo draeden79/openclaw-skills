@@ -92,7 +92,7 @@ More details: [`references/contacts.md`](references/contacts.md).
     --client-state "$GRAPH_WEBHOOK_CLIENT_STATE" \
     --minutes 4200
   ```
-- **Async worker** (dedupe + fetch message + call OpenClaw `/hooks/agent`):
+- **Async worker** (dedupe + default wake signal to OpenClaw `/hooks/wake`):
   ```bash
   python graph-office-suite/scripts/mail_webhook_worker.py loop \
     --session-key "$OPENCLAW_SESSION_KEY" \
@@ -106,7 +106,7 @@ More details: [`references/contacts.md`](references/contacts.md).
   ```bash
   sudo bash graph-office-suite/scripts/setup_mail_webhook_ec2.sh \
     --domain graphhook.example.com \
-    --hook-url http://127.0.0.1:18789/hooks/agent \
+    --hook-url http://127.0.0.1:18789/hooks/wake \
     --hook-token "<OPENCLAW_HOOK_TOKEN>" \
     --session-key "hook:graph-mail" \
     --client-state "<GRAPH_WEBHOOK_CLIENT_STATE>" \
@@ -117,7 +117,7 @@ More details: [`references/contacts.md`](references/contacts.md).
   sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
     --domain graphhook.example.com \
     --hook-token "<OPENCLAW_HOOK_TOKEN>" \
-    --hook-url "http://127.0.0.1:18789/hooks/agent" \
+    --hook-url "http://127.0.0.1:18789/hooks/wake" \
     --session-key "hook:graph-mail" \
     --test-email "tar.alitar@outlook.com"
   ```
