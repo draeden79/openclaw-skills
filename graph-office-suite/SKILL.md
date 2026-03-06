@@ -1,7 +1,7 @@
 ---
 name: graph-office-suite
-description: Operate Outlook email, calendar, contacts, and OneDrive via Microsoft Graph with assisted OAuth, plus push mail notifications via webhook adapter.
-version: 0.1.1
+description: Push-based Microsoft Graph for OpenClaw. Replace recurring inbox polling with webhook-triggered wake signals, plus mail/calendar/drive/contacts automation.
+version: 0.1.2
 license: MIT
 homepage: https://github.com/draeden79/openclaw-skills
 repository: https://github.com/draeden79/openclaw-skills

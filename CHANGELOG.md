@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.1.2] - 2026-03-06
+
+### Changed
+- Updated `graph-office-suite/SKILL.md` description to a push-first value proposition so ClawHub listing matches repository positioning.
+- Fixed CI link checker workflow by removing unsupported Lychee CLI flag (`--exclude-mail`) from `.github/workflows/link-check.yml`.
+
 ## [0.1.1] - 2026-03-06
 
 ### Changed
