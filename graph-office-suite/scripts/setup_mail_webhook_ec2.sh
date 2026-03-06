@@ -117,7 +117,7 @@ run_cmd apt-get update -y
 run_cmd apt-get install -y python3 python3-pip curl gnupg debian-keyring debian-archive-keyring apt-transport-https
 ok "Dependencies installed"
 
-if [[ "$DRY_RUN" == "true" || ! command -v caddy >/dev/null 2>&1 ]]; then
+if [[ "$DRY_RUN" == "true" ]] || ! command -v caddy >/dev/null 2>&1; then
   echo "[2/7] Installing Caddy..."
   if [[ "$DRY_RUN" == "true" ]]; then
     info "[DRY-RUN] install Caddy and apt repo configuration"

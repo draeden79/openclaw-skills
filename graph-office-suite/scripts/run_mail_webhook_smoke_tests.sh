@@ -71,12 +71,6 @@ if [[ -f "$ENV_FILE" ]]; then
   if [[ "${ADAPTER_PATH}" == "/graph/mail" && -n "${GRAPH_WEBHOOK_ADAPTER_PATH:-}" ]]; then
     ADAPTER_PATH="${GRAPH_WEBHOOK_ADAPTER_PATH}"
   fi
-  if [[ -n "${OPENCLAW_HOOK_URL:-}" ]]; then
-    OPENCLAW_HOOK_URL="${OPENCLAW_HOOK_URL}"
-  fi
-  if [[ -n "${OPENCLAW_HOOK_TOKEN:-}" ]]; then
-    OPENCLAW_HOOK_TOKEN="${OPENCLAW_HOOK_TOKEN}"
-  fi
 fi
 
 if [[ -z "$DOMAIN" ]]; then
