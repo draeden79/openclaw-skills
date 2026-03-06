@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.1.1] - 2026-03-06
+
+### Changed
+- Moved skill runtime requirements to `metadata.openclaw.requires` / `metadata.openclaw.primaryEnv` for registry-aligned capability gating.
+- Added explicit privileged-operations boundary documentation in `README.md` and `graph-office-suite/SKILL.md`.
+- Added `--dry-run` support to `setup_mail_webhook_ec2.sh` and `run_mail_webhook_e2e_setup.sh` to preview writes and service actions before execution.
+
 ## [0.1.0] - 2026-03-06
 
 ### Added

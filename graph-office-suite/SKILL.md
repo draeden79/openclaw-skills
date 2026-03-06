@@ -1,29 +1,11 @@
 ---
 name: graph-office-suite
 description: Operate Outlook email, calendar, contacts, and OneDrive via Microsoft Graph with assisted OAuth, plus push mail notifications via webhook adapter.
-version: 0.1.0
+version: 0.1.1
 license: MIT
 homepage: https://github.com/draeden79/openclaw-skills
 repository: https://github.com/draeden79/openclaw-skills
-os:
-  - linux
-  - macos
-  - windows
-primaryEnv:
-  - OPENCLAW_HOOK_URL
-  - OPENCLAW_HOOK_TOKEN
-  - GRAPH_WEBHOOK_CLIENT_STATE
-  - OPENCLAW_SESSION_KEY
-requires:
-  bins:
-    - python3
-    - bash
-    - curl
-  env:
-    - OPENCLAW_HOOK_URL
-    - OPENCLAW_HOOK_TOKEN
-    - GRAPH_WEBHOOK_CLIENT_STATE
-    - OPENCLAW_SESSION_KEY
+metadata: {"openclaw":{"homepage":"https://github.com/draeden79/openclaw-skills","os":["linux","darwin","win32"],"primaryEnv":"OPENCLAW_HOOK_TOKEN","requires":{"bins":["python3","bash","curl"],"env":["OPENCLAW_HOOK_URL","OPENCLAW_HOOK_TOKEN","GRAPH_WEBHOOK_CLIENT_STATE","OPENCLAW_SESSION_KEY"]}}}
 security:
   summary: Push-first Graph integration with explicit hook token auth and clientState validation.
   notes:
@@ -43,6 +25,11 @@ security:
    - For work/school accounts, use `--tenant-id organizations` (or tenant GUID) and a tenant-approved `--client-id`.
    - The public default client ID is for quick testing. For production, prefer your own App Registration.
 3. Tokens are stored in `state/graph_auth.json` (ignored by git).
+4. Required runtime envs for push mode:
+   - `OPENCLAW_HOOK_URL`
+   - `OPENCLAW_HOOK_TOKEN`
+   - `GRAPH_WEBHOOK_CLIENT_STATE`
+   - `OPENCLAW_SESSION_KEY`
 
 Permission profiles (least privilege by use case) are documented in `../docs/permission-profiles.md`.
 
@@ -146,6 +133,7 @@ More details: [`references/contacts.md`](references/contacts.md).
     --client-state "<GRAPH_WEBHOOK_CLIENT_STATE>" \
     --repo-root "$(pwd)"
   ```
+  - Use `--dry-run` to preview all privileged writes and service actions before applying changes.
 - **One-command setup (steps 2..6)**:
   ```bash
   sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh \
@@ -155,6 +143,7 @@ More details: [`references/contacts.md`](references/contacts.md).
     --session-key "hook:graph-mail" \
     --test-email "tar.alitar@outlook.com"
   ```
+  - Use `--dry-run` for a no-mutation execution plan (no `/etc` writes, no `systemctl`, no subscription create, no email send).
   - Output ends with `READY_FOR_PUSH: YES` when setup is fully validated.
 - **Include OpenClaw hook config in automation**:
   ```bash
@@ -178,12 +167,33 @@ More details: [`references/contacts.md`](references/contacts.md).
   - Output ends with `READINESS VERDICT: READY_FOR_PUSH` only after all critical checks pass.
 - Setup and runbook: [`references/mail_webhook_adapter.md`](references/mail_webhook_adapter.md).
 
-## 8. Logging and conventions
+## 8. Privileged operations boundary
+
+The core Graph scripts are unprivileged (`graph_auth.py`, `mail_fetch.py`, `mail_send.py`, `calendar_sync.py`, `drive_ops.py`, `contacts_ops.py`).
+
+The setup scripts below are privileged and should be manually reviewed before execution:
+- `scripts/setup_mail_webhook_ec2.sh`
+- `scripts/run_mail_webhook_e2e_setup.sh`
+
+When run without `--dry-run`, they can:
+- Write `/etc/default/graph-mail-webhook`
+- Write `/etc/caddy/Caddyfile`
+- Write `/etc/systemd/system/*.service` and `*.timer`
+- Enable/restart services via `systemctl`
+- Optionally patch OpenClaw config and restart OpenClaw services
+
+Recommended safety sequence:
+1. Run with `--dry-run`
+2. Review emitted actions and target files
+3. Run on a non-production host first
+4. Apply to production only after approval
+
+## 9. Logging and conventions
 - Each script appends one JSON line to `state/graph_ops.log` with timestamp, action, and key parameters.
 - Tokens and logs must never be committed.
 - Commands assume execution from the repository root. Adjust paths if running elsewhere.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 | Symptom | Action |
 | --- | --- |
 | 401/invalid_grant | Run `graph_auth.py refresh`; if it fails, run `clear` and repeat device login. |

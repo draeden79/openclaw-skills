@@ -6,7 +6,7 @@ Stop waking an LLM just to ask whether a new email arrived.
 This repository provides a webhook-driven Graph skill that wakes OpenClaw only when work actually happens, reducing recurring inbox polling overhead in self-hosted deployments.
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg)
+![Release](https://img.shields.io/badge/release-v0.1.1-blue.svg)
 ![CI](https://img.shields.io/badge/ci-github_actions-informational.svg)
 
 ## Why this exists
@@ -81,11 +81,15 @@ python graph-office-suite/scripts/graph_auth.py device-login \
 2) Bootstrap production services (EC2 target):
 ```bash
 sudo bash graph-office-suite/scripts/setup_mail_webhook_ec2.sh --help
+# preview all privileged actions first
+sudo bash graph-office-suite/scripts/setup_mail_webhook_ec2.sh --dry-run --help
 ```
 
 3) Run one-command setup:
 ```bash
 sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh --help
+# optional safe preview mode
+sudo bash graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh --dry-run --help
 ```
 
 4) Validate readiness:
@@ -109,8 +113,19 @@ Onboarding paths:
 - Token-bearing files stay in `state/` and must never be committed.
 - Webhook authentication requires dedicated hook token headers.
 - Graph webhook integrity uses `GRAPH_WEBHOOK_CLIENT_STATE`.
+- Push-mode runtime requires: `OPENCLAW_HOOK_URL`, `OPENCLAW_HOOK_TOKEN`, `GRAPH_WEBHOOK_CLIENT_STATE`, `OPENCLAW_SESSION_KEY`.
 - The project is self-hosted and production-oriented, with explicit setup and diagnostics.
 - See `SECURITY.md` for threat model and credential revocation guidance.
+
+## Privileged operations boundary
+
+Core Graph operations are unprivileged Python scripts.
+
+Privileged automation is limited to:
+- `graph-office-suite/scripts/setup_mail_webhook_ec2.sh`
+- `graph-office-suite/scripts/run_mail_webhook_e2e_setup.sh`
+
+Without `--dry-run`, these can write under `/etc`, create/enable systemd units, and optionally patch OpenClaw config + restart services. Review script output with `--dry-run` before applying changes on production hosts.
 
 ## Documentation map
 

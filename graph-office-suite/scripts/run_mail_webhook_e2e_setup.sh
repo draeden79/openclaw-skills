@@ -24,7 +24,8 @@ Usage:
     [--client-state "<GRAPH_WEBHOOK_CLIENT_STATE>"] \
     [--repo-root /path/to/openclaw-skills] \
     [--minutes 4200] \
-    [--test-email tar.alitar@outlook.com]
+    [--test-email tar.alitar@outlook.com] \
+    [--dry-run]
 
 Notes:
   - Must run on Linux host where OpenClaw + this repo are installed.
@@ -42,11 +43,13 @@ require_cmd() {
 
 ok() { echo "[OK] $1"; }
 info() { echo "[INFO] $1"; }
-
-if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-  echo "Run as root (sudo)." >&2
-  exit 1
-fi
+run_cmd() {
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] $*"
+    return 0
+  fi
+  "$@"
+}
 
 DOMAIN=""
 HOOK_URL="http://127.0.0.1:18789/hooks/wake"
@@ -62,6 +65,7 @@ OPENCLAW_CONFIG=""
 OPENCLAW_SERVICE_NAME="auto"
 OPENCLAW_HOOKS_PATH="/hooks"
 OPENCLAW_ALLOW_REQUEST_SESSION_KEY="true"
+DRY_RUN="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -78,6 +82,7 @@ while [[ $# -gt 0 ]]; do
     --repo-root) REPO_ROOT="$2"; shift 2 ;;
     --minutes) MINUTES="$2"; shift 2 ;;
     --test-email) TEST_EMAIL="$2"; shift 2 ;;
+    --dry-run) DRY_RUN="true"; shift 1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage; exit 1 ;;
   esac
@@ -89,12 +94,20 @@ if [[ -z "$DOMAIN" || -z "$HOOK_TOKEN" ]]; then
   exit 1
 fi
 
+if [[ "$DRY_RUN" != "true" && "${EUID:-$(id -u)}" -ne 0 ]]; then
+  echo "Run as root (sudo)." >&2
+  exit 1
+fi
+
 require_cmd curl
 require_cmd systemctl
 require_cmd python3
 require_cmd sed
 require_cmd grep
 require_cmd cp
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "Dry-run mode enabled: no system changes or API writes will be applied."
+fi
 
 SETUP_SCRIPT="$REPO_ROOT/graph-office-suite/scripts/setup_mail_webhook_ec2.sh"
 SUB_SCRIPT="$REPO_ROOT/graph-office-suite/scripts/mail_subscriptions.py"
@@ -160,9 +173,16 @@ if [[ "$CONFIGURE_OPENCLAW_HOOKS" == "true" ]]; then
   fi
 
   BACKUP_PATH="${OPENCLAW_CONFIG}.bak.$(date +%Y%m%d-%H%M%S)"
-  cp "$OPENCLAW_CONFIG" "$BACKUP_PATH"
-  ok "OpenClaw config backup created: $BACKUP_PATH"
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] backup OpenClaw config: $OPENCLAW_CONFIG -> $BACKUP_PATH"
+  else
+    cp "$OPENCLAW_CONFIG" "$BACKUP_PATH"
+    ok "OpenClaw config backup created: $BACKUP_PATH"
+  fi
 
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] patch OpenClaw hooks block in $OPENCLAW_CONFIG"
+  else
   python3 - "$OPENCLAW_CONFIG" "$HOOK_TOKEN" "$OPENCLAW_HOOKS_PATH" "$OPENCLAW_ALLOW_REQUEST_SESSION_KEY" <<'PY'
 import sys
 from pathlib import Path
@@ -302,86 +322,122 @@ else:
 cfg_path.write_text(updated, encoding="utf-8")
 print("OpenClaw hooks block updated.")
 PY
+  fi
 
   info "Restarting OpenClaw service: $OPENCLAW_SERVICE_NAME"
   if [[ "$OPENCLAW_SERVICE_NAME" == "auto" ]]; then
     if command -v openclaw >/dev/null 2>&1; then
       if [[ -n "${SUDO_USER:-}" ]]; then
-        sudo -u "$ACTING_USER" openclaw gateway restart || true
+        if [[ "$DRY_RUN" == "true" ]]; then
+          info "[DRY-RUN] sudo -u $ACTING_USER openclaw gateway restart"
+        else
+          sudo -u "$ACTING_USER" openclaw gateway restart || true
+        fi
       else
-        openclaw gateway restart || true
+        run_cmd openclaw gateway restart || true
       fi
     fi
     if [[ -n "${SUDO_USER:-}" ]]; then
-      sudo -u "$ACTING_USER" systemctl --user restart openclaw-gateway.service || true
+      if [[ "$DRY_RUN" == "true" ]]; then
+        info "[DRY-RUN] sudo -u $ACTING_USER systemctl --user restart openclaw-gateway.service"
+      else
+        sudo -u "$ACTING_USER" systemctl --user restart openclaw-gateway.service || true
+      fi
     else
-      systemctl --user restart openclaw-gateway.service || true
+      run_cmd systemctl --user restart openclaw-gateway.service || true
     fi
   else
-    systemctl restart "$OPENCLAW_SERVICE_NAME" || true
+    run_cmd systemctl restart "$OPENCLAW_SERVICE_NAME" || true
     if [[ -n "${SUDO_USER:-}" ]]; then
-      sudo -u "$ACTING_USER" systemctl --user restart "$OPENCLAW_SERVICE_NAME" || true
+      if [[ "$DRY_RUN" == "true" ]]; then
+        info "[DRY-RUN] sudo -u $ACTING_USER systemctl --user restart $OPENCLAW_SERVICE_NAME"
+      else
+        sudo -u "$ACTING_USER" systemctl --user restart "$OPENCLAW_SERVICE_NAME" || true
+      fi
     else
-      systemctl --user restart "$OPENCLAW_SERVICE_NAME" || true
+      run_cmd systemctl --user restart "$OPENCLAW_SERVICE_NAME" || true
     fi
   fi
-  sleep 2
+  if [[ "$DRY_RUN" != "true" ]]; then
+    sleep 2
+  fi
   if [[ "$OPENCLAW_SERVICE_NAME" == "auto" ]]; then
     if command -v openclaw >/dev/null 2>&1; then
       if [[ -n "${SUDO_USER:-}" ]]; then
-        sudo -u "$ACTING_USER" openclaw gateway status --no-probe >/dev/null || true
+        if [[ "$DRY_RUN" == "true" ]]; then
+          info "[DRY-RUN] sudo -u $ACTING_USER openclaw gateway status --no-probe"
+        else
+          sudo -u "$ACTING_USER" openclaw gateway status --no-probe >/dev/null || true
+        fi
       else
-        openclaw gateway status --no-probe >/dev/null || true
+        run_cmd openclaw gateway status --no-probe >/dev/null || true
       fi
     fi
   else
-    systemctl status "$OPENCLAW_SERVICE_NAME" --no-pager >/dev/null || true
+    run_cmd systemctl status "$OPENCLAW_SERVICE_NAME" --no-pager >/dev/null || true
   fi
 
   info "Running OpenClaw hook smoke tests..."
-  curl -fsS -X POST "http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/wake" \
-    -H "Authorization: Bearer $HOOK_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d '{"text":"Graph webhook setup smoke test","mode":"now"}' >/dev/null
-
-  ok "OpenClaw /hooks/wake check passed"
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] POST http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/wake"
+  else
+    curl -fsS -X POST "http://127.0.0.1:18789${OPENCLAW_HOOKS_PATH}/wake" \
+      -H "Authorization: Bearer $HOOK_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"text":"Graph webhook setup smoke test","mode":"now"}' >/dev/null
+    ok "OpenClaw /hooks/wake check passed"
+  fi
 fi
 
 echo "[Step 2] Running bootstrap script..."
+DRY_RUN_ARG=()
+if [[ "$DRY_RUN" == "true" ]]; then
+  DRY_RUN_ARG+=(--dry-run)
+fi
 bash "$SETUP_SCRIPT" \
   --domain "$DOMAIN" \
   --hook-url "$HOOK_URL" \
   --hook-token "$HOOK_TOKEN" \
   --session-key "$SESSION_KEY" \
   --client-state "$CLIENT_STATE" \
-  --repo-root "$REPO_ROOT"
+  --repo-root "$REPO_ROOT" \
+  "${DRY_RUN_ARG[@]}"
 
 echo "[Step 3] Validating public HTTPS endpoint..."
 VALIDATION_TOKEN="probe-$(date +%s)"
-VALIDATION_RESULT="$(curl -fsS "https://$DOMAIN$ADAPTER_PATH?validationToken=$VALIDATION_TOKEN")"
-if [[ "$VALIDATION_RESULT" != "$VALIDATION_TOKEN" ]]; then
-  echo "Validation failed. Expected '$VALIDATION_TOKEN', got '$VALIDATION_RESULT'." >&2
-  exit 1
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] GET https://$DOMAIN$ADAPTER_PATH?validationToken=$VALIDATION_TOKEN"
+else
+  VALIDATION_RESULT="$(curl -fsS "https://$DOMAIN$ADAPTER_PATH?validationToken=$VALIDATION_TOKEN")"
+  if [[ "$VALIDATION_RESULT" != "$VALIDATION_TOKEN" ]]; then
+    echo "Validation failed. Expected '$VALIDATION_TOKEN', got '$VALIDATION_RESULT'." >&2
+    exit 1
+  fi
 fi
 echo "Endpoint validation OK."
 
 echo "[Step 4] Creating Graph subscription..."
-CREATE_JSON="$(
-  python3 "$SUB_SCRIPT" create \
-    --notification-url "https://$DOMAIN$ADAPTER_PATH" \
-    --client-state "$CLIENT_STATE" \
-    --minutes "$MINUTES"
-)"
-echo "$CREATE_JSON"
-
-SUBSCRIPTION_ID="$(
-  python3 - <<'PY' "$CREATE_JSON"
+if [[ "$DRY_RUN" == "true" ]]; then
+  CREATE_JSON='{"id":"dry-run-subscription-id","dryRun":true}'
+  SUBSCRIPTION_ID="dry-run-subscription-id"
+  info "[DRY-RUN] python3 $SUB_SCRIPT create --notification-url https://$DOMAIN$ADAPTER_PATH --client-state <hidden> --minutes $MINUTES"
+else
+  CREATE_JSON="$(
+    python3 "$SUB_SCRIPT" create \
+      --notification-url "https://$DOMAIN$ADAPTER_PATH" \
+      --client-state "$CLIENT_STATE" \
+      --minutes "$MINUTES"
+  )"
+  echo "$CREATE_JSON"
+  SUBSCRIPTION_ID="$(
+    python3 - <<'PY' "$CREATE_JSON"
 import json
 import sys
 body = json.loads(sys.argv[1])
 print(body.get("id", ""))
 PY
 )"
+fi
 
 if [[ -z "$SUBSCRIPTION_ID" ]]; then
   echo "Could not parse subscription id from create response." >&2
@@ -390,26 +446,34 @@ fi
 echo "Subscription created: $SUBSCRIPTION_ID"
 
 echo "[Step 5] Persisting subscription id in $ENV_FILE..."
-if grep -q '^GRAPH_MAIL_SUBSCRIPTION_ID=' "$ENV_FILE"; then
-  sed -i "s|^GRAPH_MAIL_SUBSCRIPTION_ID=.*$|GRAPH_MAIL_SUBSCRIPTION_ID=$SUBSCRIPTION_ID|" "$ENV_FILE"
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] update GRAPH_MAIL_SUBSCRIPTION_ID in $ENV_FILE"
 else
-  printf "\nGRAPH_MAIL_SUBSCRIPTION_ID=%s\n" "$SUBSCRIPTION_ID" >> "$ENV_FILE"
+  if grep -q '^GRAPH_MAIL_SUBSCRIPTION_ID=' "$ENV_FILE"; then
+    sed -i "s|^GRAPH_MAIL_SUBSCRIPTION_ID=.*$|GRAPH_MAIL_SUBSCRIPTION_ID=$SUBSCRIPTION_ID|" "$ENV_FILE"
+  else
+    printf "\nGRAPH_MAIL_SUBSCRIPTION_ID=%s\n" "$SUBSCRIPTION_ID" >> "$ENV_FILE"
+  fi
 fi
 
-systemctl daemon-reload
-systemctl restart graph-mail-webhook-adapter
-systemctl restart graph-mail-webhook-worker
-systemctl restart graph-mail-subscription-renew.service
-systemctl restart graph-mail-subscription-renew.timer
+run_cmd systemctl daemon-reload
+run_cmd systemctl restart graph-mail-webhook-adapter
+run_cmd systemctl restart graph-mail-webhook-worker
+run_cmd systemctl restart graph-mail-subscription-renew.service
+run_cmd systemctl restart graph-mail-subscription-renew.timer
 
 echo "Services restarted."
 
 echo "[Step 6] Optional real email test..."
 if [[ -n "$TEST_EMAIL" ]]; then
   TEST_SUBJECT="Graph Push E2E $(date +%Y%m%d-%H%M%S)"
-  python3 "$SEND_SCRIPT" --to "$TEST_EMAIL" --subject "$TEST_SUBJECT" --body "Graph webhook push end-to-end test."
-  echo "Sent test email to: $TEST_EMAIL"
-  echo "Subject: $TEST_SUBJECT"
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] python3 $SEND_SCRIPT --to $TEST_EMAIL --subject \"$TEST_SUBJECT\" --body \"Graph webhook push end-to-end test.\""
+  else
+    python3 "$SEND_SCRIPT" --to "$TEST_EMAIL" --subject "$TEST_SUBJECT" --body "Graph webhook push end-to-end test."
+    echo "Sent test email to: $TEST_EMAIL"
+    echo "Subject: $TEST_SUBJECT"
+  fi
 else
   echo "Skipped (no --test-email provided)."
 fi
@@ -432,7 +496,9 @@ echo "  systemctl status graph-mail-subscription-renew.timer --no-pager"
 echo "  python3 \"$SUB_SCRIPT\" status --id \"$SUBSCRIPTION_ID\""
 echo
 echo "READINESS VERDICT:"
-if [[ -n "$TEST_EMAIL" ]]; then
+if [[ "$DRY_RUN" == "true" ]]; then
+  echo "READY_FOR_PUSH: DRY_RUN (no live mutations or external API writes executed)"
+elif [[ -n "$TEST_EMAIL" ]]; then
   echo "READY_FOR_PUSH: YES (public endpoint, subscription, services, and real email send tested)"
 else
   echo "READY_FOR_PUSH: YES (public endpoint, subscription, and services validated)"

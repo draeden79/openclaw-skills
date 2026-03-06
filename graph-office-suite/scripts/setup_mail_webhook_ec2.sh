@@ -25,7 +25,8 @@ Usage:
     [--python /usr/bin/python3] \
     [--adapter-port 8789] \
     [--adapter-path /graph/mail] \
-    [--renew-minutes 30]
+    [--renew-minutes 30] \
+    [--dry-run]
 
 Notes:
   - Must run as root (or with sudo).
@@ -44,6 +45,13 @@ require_cmd() {
 ok() { echo "[OK] $1"; }
 info() { echo "[INFO] $1"; }
 warn() { echo "[WARN] $1"; }
+run_cmd() {
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] $*"
+    return 0
+  fi
+  "$@"
+}
 
 DOMAIN=""
 HOOK_URL=""
@@ -55,6 +63,7 @@ PYTHON_BIN="/usr/bin/python3"
 ADAPTER_PORT="8789"
 ADAPTER_PATH="/graph/mail"
 RENEW_MINUTES="30"
+DRY_RUN="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -68,6 +77,7 @@ while [[ $# -gt 0 ]]; do
     --adapter-port) ADAPTER_PORT="$2"; shift 2 ;;
     --adapter-path) ADAPTER_PATH="$2"; shift 2 ;;
     --renew-minutes) RENEW_MINUTES="$2"; shift 2 ;;
+    --dry-run) DRY_RUN="true"; shift 1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage; exit 1 ;;
   esac
@@ -79,14 +89,18 @@ if [[ -z "$DOMAIN" || -z "$HOOK_URL" || -z "$HOOK_TOKEN" || -z "$SESSION_KEY" ||
   exit 1
 fi
 
-if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+if [[ "$DRY_RUN" != "true" && "${EUID:-$(id -u)}" -ne 0 ]]; then
   echo "Run as root (sudo)." >&2
   exit 1
 fi
 
-require_cmd apt-get
-require_cmd systemctl
-require_cmd tee
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "Dry-run mode enabled: no system changes will be applied."
+else
+  require_cmd apt-get
+  require_cmd systemctl
+  require_cmd tee
+fi
 
 SCRIPTS_DIR="$REPO_ROOT/graph-office-suite/scripts"
 ADAPTER_SCRIPT="$SCRIPTS_DIR/mail_webhook_adapter.py"
@@ -99,22 +113,29 @@ for file in "$ADAPTER_SCRIPT" "$WORKER_SCRIPT" "$SUB_SCRIPT"; do
 done
 
 echo "[1/7] Installing dependencies..."
-apt-get update -y
-apt-get install -y python3 python3-pip curl gnupg debian-keyring debian-archive-keyring apt-transport-https
+run_cmd apt-get update -y
+run_cmd apt-get install -y python3 python3-pip curl gnupg debian-keyring debian-archive-keyring apt-transport-https
 ok "Dependencies installed"
 
-if ! command -v caddy >/dev/null 2>&1; then
+if [[ "$DRY_RUN" == "true" || ! command -v caddy >/dev/null 2>&1 ]]; then
   echo "[2/7] Installing Caddy..."
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
-  apt-get update -y
-  apt-get install -y caddy
+  if [[ "$DRY_RUN" == "true" ]]; then
+    info "[DRY-RUN] install Caddy and apt repo configuration"
+  else
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+    apt-get update -y
+    apt-get install -y caddy
+  fi
 else
   echo "[2/7] Caddy already installed."
 fi
 ok "Caddy available"
 
 echo "[3/7] Writing environment file: $ENV_FILE"
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] write $ENV_FILE"
+else
 cat > "$ENV_FILE" <<EOF
 GRAPH_WEBHOOK_CLIENT_STATE=$CLIENT_STATE
 OPENCLAW_HOOK_URL=$HOOK_URL
@@ -124,17 +145,25 @@ GRAPH_WEBHOOK_ADAPTER_PORT=$ADAPTER_PORT
 GRAPH_WEBHOOK_ADAPTER_PATH=$ADAPTER_PATH
 EOF
 chmod 600 "$ENV_FILE"
+fi
 ok "Environment file written"
 
 echo "[4/7] Configuring Caddy reverse proxy for $DOMAIN"
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] write /etc/caddy/Caddyfile"
+else
 cat > /etc/caddy/Caddyfile <<EOF
 $DOMAIN {
     reverse_proxy 127.0.0.1:$ADAPTER_PORT
 }
 EOF
+fi
 ok "Caddyfile configured for $DOMAIN"
 
 echo "[5/7] Creating systemd service: graph-mail-webhook-adapter"
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] write /etc/systemd/system/graph-mail-webhook-adapter.service"
+else
 cat > /etc/systemd/system/graph-mail-webhook-adapter.service <<EOF
 [Unit]
 Description=Graph Mail Webhook Adapter
@@ -151,9 +180,13 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
+fi
 ok "Adapter systemd service created"
 
 echo "[6/7] Creating systemd service: graph-mail-webhook-worker"
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] write /etc/systemd/system/graph-mail-webhook-worker.service"
+else
 cat > /etc/systemd/system/graph-mail-webhook-worker.service <<EOF
 [Unit]
 Description=Graph Mail Webhook Worker
@@ -170,9 +203,14 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
+fi
 ok "Worker systemd service created"
 
 echo "[7/7] Creating renew timer..."
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] write /etc/systemd/system/graph-mail-subscription-renew.service"
+  info "[DRY-RUN] write /etc/systemd/system/graph-mail-subscription-renew.timer"
+else
 cat > /etc/systemd/system/graph-mail-subscription-renew.service <<EOF
 [Unit]
 Description=Renew Graph Mail Subscription (manual id required)
@@ -197,33 +235,45 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+fi
 ok "Renew timer/service created"
 
-systemctl daemon-reload
-systemctl enable --now caddy
-systemctl enable --now graph-mail-webhook-adapter
-systemctl enable --now graph-mail-webhook-worker
-systemctl enable --now graph-mail-subscription-renew.timer
+run_cmd systemctl daemon-reload
+run_cmd systemctl enable --now caddy
+run_cmd systemctl enable --now graph-mail-webhook-adapter
+run_cmd systemctl enable --now graph-mail-webhook-worker
+run_cmd systemctl enable --now graph-mail-subscription-renew.timer
 
 echo "[verify] Checking runtime status..."
-systemctl is-active --quiet caddy && ok "caddy is active" || { echo "[FAIL] caddy is not active"; exit 1; }
-systemctl is-active --quiet graph-mail-webhook-adapter && ok "graph-mail-webhook-adapter is active" || { echo "[FAIL] graph-mail-webhook-adapter is not active"; exit 1; }
-systemctl is-active --quiet graph-mail-webhook-worker && ok "graph-mail-webhook-worker is active" || { echo "[FAIL] graph-mail-webhook-worker is not active"; exit 1; }
-systemctl is-active --quiet graph-mail-subscription-renew.timer && ok "graph-mail-subscription-renew.timer is active" || { echo "[FAIL] graph-mail-subscription-renew.timer is not active"; exit 1; }
-
-LOCAL_PROBE="$(curl -fsS "http://127.0.0.1:${ADAPTER_PORT}${ADAPTER_PATH}?validationToken=probe-local")"
-if [[ "$LOCAL_PROBE" == "probe-local" ]]; then
-  ok "local adapter handshake works"
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] skip runtime service status checks"
 else
-  echo "[FAIL] local adapter handshake failed"
-  exit 1
+  systemctl is-active --quiet caddy && ok "caddy is active" || { echo "[FAIL] caddy is not active"; exit 1; }
+  systemctl is-active --quiet graph-mail-webhook-adapter && ok "graph-mail-webhook-adapter is active" || { echo "[FAIL] graph-mail-webhook-adapter is not active"; exit 1; }
+  systemctl is-active --quiet graph-mail-webhook-worker && ok "graph-mail-webhook-worker is active" || { echo "[FAIL] graph-mail-webhook-worker is not active"; exit 1; }
+  systemctl is-active --quiet graph-mail-subscription-renew.timer && ok "graph-mail-subscription-renew.timer is active" || { echo "[FAIL] graph-mail-subscription-renew.timer is not active"; exit 1; }
+fi
+
+if [[ "$DRY_RUN" == "true" ]]; then
+  info "[DRY-RUN] skip local adapter probe"
+else
+  LOCAL_PROBE="$(curl -fsS "http://127.0.0.1:${ADAPTER_PORT}${ADAPTER_PATH}?validationToken=probe-local")"
+  if [[ "$LOCAL_PROBE" == "probe-local" ]]; then
+    ok "local adapter handshake works"
+  else
+    echo "[FAIL] local adapter handshake failed"
+    exit 1
+  fi
 fi
 
 echo
 echo "Setup completed successfully."
 echo
 info "Readiness status:"
-if grep -q '^GRAPH_MAIL_SUBSCRIPTION_ID=' "$ENV_FILE"; then
+if [[ "$DRY_RUN" == "true" ]]; then
+  warn "dry-run mode: readiness is not evaluated against live system state"
+  echo "PUSH_READINESS: DRY_RUN (no system changes applied)"
+elif grep -q '^GRAPH_MAIL_SUBSCRIPTION_ID=' "$ENV_FILE"; then
   ok "service stack configured and subscription id present"
   echo "PUSH_READINESS: READY (subscription id set)"
 else
