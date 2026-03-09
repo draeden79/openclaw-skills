@@ -121,18 +121,20 @@ sudo bash scripts/run_mail_webhook_e2e_setup.sh \
 
 5) Run diagnostics:
 ```bash
-bash scripts/diagnose_mail_webhook_e2e.sh \
+sudo bash scripts/diagnose_mail_webhook_e2e.sh \
   --domain graphhook.example.com \
   --repo-root "$REPO_ROOT"
 ```
 
 6) Run smoke test:
 ```bash
-bash scripts/run_mail_webhook_smoke_tests.sh \
+sudo bash scripts/run_mail_webhook_smoke_tests.sh \
   --domain graphhook.example.com \
   --create-subscription \
   --test-email "your-email@example.com"
 ```
+
+Note: steps 5 and 6 use `sudo` because they load `/etc/default/graph-mail-webhook`, which is root-owned by default.
 
 Expected final verdict: `READY_FOR_PUSH`.
 

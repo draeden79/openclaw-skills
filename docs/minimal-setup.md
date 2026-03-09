@@ -69,11 +69,12 @@ sudo bash scripts/run_mail_webhook_e2e_setup.sh \
 ```
 
 Replace `graphhook.example.com` and `<OPENCLAW_HOOK_TOKEN>` with your real values.
+Run steps 5 and 6 with `sudo` because the scripts read `/etc/default/graph-mail-webhook` (root-owned by default).
 
 ### 5. Run diagnostics
 
 ```bash
-bash scripts/diagnose_mail_webhook_e2e.sh \
+sudo bash scripts/diagnose_mail_webhook_e2e.sh \
   --domain graphhook.example.com \
   --repo-root "$REPO_ROOT"
 ```
@@ -83,7 +84,7 @@ Resolve any `FAIL` result before proceeding.
 ### 6. Run smoke test
 
 ```bash
-bash scripts/run_mail_webhook_smoke_tests.sh \
+sudo bash scripts/run_mail_webhook_smoke_tests.sh \
   --domain graphhook.example.com \
   --create-subscription \
   --test-email "your-email@example.com"

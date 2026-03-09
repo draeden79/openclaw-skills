@@ -10,7 +10,7 @@ Actions:
 1) Verify active subscription resource (`me/messages` recommended).
 2) Verify notification URL is public HTTPS and reachable.
 3) Check adapter service and reverse proxy status.
-4) Run `diagnose_mail_webhook_e2e.sh` for full pipeline checks.
+4) Run `sudo bash scripts/diagnose_mail_webhook_e2e.sh --domain <your-domain> --repo-root "$(pwd)"` for full pipeline checks.
 
 ## Subscription has `clientState: null`
 

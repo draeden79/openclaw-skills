@@ -99,7 +99,7 @@ This mode creates a backup of the OpenClaw config, patches/creates the `hooks` b
 Run minimal-input smoke tests any time:
 
 ```bash
-bash scripts/run_mail_webhook_smoke_tests.sh \
+sudo bash scripts/run_mail_webhook_smoke_tests.sh \
   --domain graphhook.example.com \
   --create-subscription \
   --test-email tar.alitar@outlook.com
@@ -120,7 +120,7 @@ Follow this exact order for a clean setup to full validation:
 3. Confirm setup verdict:
    - Script prints `READY_FOR_PUSH` or `PARTIAL` status at the end.
 4. Run smoke tests:
-   - `run_mail_webhook_smoke_tests.sh --domain ... --create-subscription --test-email ...`
+   - `sudo bash scripts/run_mail_webhook_smoke_tests.sh --domain ... --create-subscription --test-email ...`
 5. Confirm test verdict:
    - Script prints `READINESS VERDICT: READY_FOR_PUSH` only when critical + live email checks pass.
 
@@ -203,7 +203,7 @@ python3 scripts/mail_webhook_worker.py loop \
 Use one command for a full pipeline snapshot:
 
 ```bash
-bash scripts/diagnose_mail_webhook_e2e.sh \
+sudo bash scripts/diagnose_mail_webhook_e2e.sh \
   --domain graphhook.example.com \
   --repo-root "$(pwd)" \
   --lookback-minutes 30

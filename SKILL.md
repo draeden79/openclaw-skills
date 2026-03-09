@@ -159,7 +159,7 @@ More details: [`references/contacts.md`](references/contacts.md).
   ```
 - **Minimal-input smoke tests**:
   ```bash
-  bash scripts/run_mail_webhook_smoke_tests.sh \
+  sudo bash scripts/run_mail_webhook_smoke_tests.sh \
     --domain graphhook.example.com \
     --create-subscription \
     --test-email tar.alitar@outlook.com

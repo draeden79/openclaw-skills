@@ -152,12 +152,20 @@ ok "Environment file written"
 echo "[4/7] Configuring Caddy reverse proxy for $DOMAIN"
 if [[ "$DRY_RUN" == "true" ]]; then
   info "[DRY-RUN] write /etc/caddy/Caddyfile"
+  info "[DRY-RUN] caddy validate --config /etc/caddy/Caddyfile"
+  info "[DRY-RUN] systemctl restart caddy"
 else
 cat > /etc/caddy/Caddyfile <<EOF
-$DOMAIN {
+https://$DOMAIN {
     reverse_proxy 127.0.0.1:$ADAPTER_PORT
 }
+
+http://$DOMAIN {
+    redir https://$DOMAIN{uri} 308
+}
 EOF
+  caddy validate --config /etc/caddy/Caddyfile
+  systemctl restart caddy
 fi
 ok "Caddyfile configured for $DOMAIN"
 
@@ -240,7 +248,7 @@ fi
 ok "Renew timer/service created"
 
 run_cmd systemctl daemon-reload
-run_cmd systemctl enable --now caddy
+run_cmd systemctl enable caddy
 run_cmd systemctl enable --now graph-mail-webhook-adapter
 run_cmd systemctl enable --now graph-mail-webhook-worker
 run_cmd systemctl enable --now graph-mail-subscription-renew.timer
@@ -253,6 +261,12 @@ else
     ok "caddy is active"
   else
     echo "[FAIL] caddy is not active"
+    exit 1
+  fi
+  if ss -ltn '( sport = :443 )' | grep -q ':443'; then
+    ok "caddy is listening on :443"
+  else
+    echo "[FAIL] caddy is not listening on :443"
     exit 1
   fi
   if systemctl is-active --quiet graph-mail-webhook-adapter; then
