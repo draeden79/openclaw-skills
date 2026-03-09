@@ -3,7 +3,6 @@ name: microsoft-365-graph-openclaw
 description: Microsoft 365 Graph for OpenClaw with webhook-based wake signals. Reduce recurring LLM cost from inbox polling while managing Outlook mail, calendar, OneDrive, and contacts via Microsoft Graph.
 version: 0.2.0
 license: MIT
-acceptLicenseTerms: true
 homepage: https://github.com/draeden79/microsoft-365-graph-openclaw
 repository: https://github.com/draeden79/microsoft-365-graph-openclaw
 metadata: {"openclaw":{"homepage":"https://github.com/draeden79/microsoft-365-graph-openclaw","os":["linux","darwin","win32"],"primaryEnv":"OPENCLAW_HOOK_TOKEN","requires":{"bins":["python3","bash","curl"],"env":["OPENCLAW_HOOK_URL","OPENCLAW_HOOK_TOKEN","GRAPH_WEBHOOK_CLIENT_STATE","OPENCLAW_SESSION_KEY"]}}}
